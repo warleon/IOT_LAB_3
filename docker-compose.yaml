@@ -1,0 +1,37 @@
+version: "3"
+services:
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto_broker
+    ports:
+      - "1883:1883" # MQTT port
+      - "9001:9001" # WebSocket port (optional)
+    volumes:
+      - ./mosquitto_config:/mosquitto/config # Mount configuration from host
+    networks:
+      - mqtt_network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "1883"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  node_app:
+    image: node:18-alpine
+    container_name: mqtt_express_app
+    working_dir: /app
+    volumes:
+      - ./node_app:/app # Mounts code from host to container
+      - /app/node_modules # Separate node_modules volume
+    networks:
+      - mqtt_network
+    ports:
+      - "3000:3000" # Expose Express app
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    command: sh -c "npm install && node server.js" # Installs dependencies and starts the app
+
+networks:
+  mqtt_network:
+    driver: bridge
